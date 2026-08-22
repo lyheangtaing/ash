@@ -20,15 +20,17 @@ class SettingsAssetLocalDataSource(
     override fun getAssets(): List<AssetEntity> {
         val storedJson = settings.get<String>(assetsKey)
         if (storedJson.isNullOrBlank()) {
-            saveAssets(DefaultAssetSeed.assets)
-            return DefaultAssetSeed.assets
+            saveAssets(emptyList())
+            return emptyList()
         }
 
         return try {
             json.decodeFromString(assetsSerializer, storedJson)
         } catch (_: SerializationException) {
+            settings["$assetsKey.recovery"] = storedJson
             emptyList()
         } catch (_: IllegalArgumentException) {
+            settings["$assetsKey.recovery"] = storedJson
             emptyList()
         }
     }

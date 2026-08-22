@@ -12,6 +12,8 @@ sealed interface AssetIntent {
     data class CategoryFilterChanged(val category: AssetCategory?) : AssetIntent
     data class ConditionFilterChanged(val condition: AssetCondition?) : AssetIntent
     data class OwnershipFilterChanged(val ownershipStatus: OwnershipStatus?) : AssetIntent
+    data class TagFilterChanged(val tag: String?) : AssetIntent
+    data class SortChanged(val sortOrder: AssetSortOrder) : AssetIntent
     data class SelectAsset(val assetId: String?) : AssetIntent
     data object StartAddAsset : AssetIntent
     data class StartEditAsset(val assetId: String) : AssetIntent
@@ -21,4 +23,10 @@ sealed interface AssetIntent {
     data class StartMaintenance(val assetId: String) : AssetIntent
     data class MaintenanceFormChanged(val form: MaintenanceFormState) : AssetIntent
     data object AddMaintenanceRecord : AssetIntent
+    data class StartReminder(val assetId: String? = null) : AssetIntent
+    data class ReminderFormChanged(val form: ReminderFormState) : AssetIntent
+    data object SaveReminder : AssetIntent
+    data class ReminderCompleted(val assetId: String, val reminderId: String, val completed: Boolean) : AssetIntent
+    data class RequestSuggestion(val assetId: String) : AssetIntent
+    data object ClearSuggestion : AssetIntent
 }

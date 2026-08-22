@@ -22,7 +22,12 @@ data class Asset(
     val maintenanceRecords: List<MaintenanceRecord>,
     val isInUse: Boolean,
     val createdAt: LocalDate,
-    val updatedAt: LocalDate
+    val updatedAt: LocalDate,
+    val tags: List<String> = emptyList(),
+    val specialDetails: String = "",
+    val willingToSell: Boolean = false,
+    val desiredSellingPrice: Double? = null,
+    val reminders: List<AssetReminder> = emptyList()
 ) {
     val totalMaintenanceCost: Double
         get() = maintenanceRecords.sumOf { it.cost }

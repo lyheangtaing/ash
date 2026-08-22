@@ -32,7 +32,8 @@ class AssetViewModel(
                     searchQuery = "",
                     categoryFilter = null,
                     conditionFilter = null,
-                    ownershipFilter = OwnershipStatus.OWNED
+                    ownershipFilter = null,
+                    tagFilter = null
                 )
                 refresh()
             }
@@ -51,6 +52,14 @@ class AssetViewModel(
             }
             is AssetIntent.OwnershipFilterChanged -> {
                 state = state.copy(ownershipFilter = intent.ownershipStatus)
+                refresh()
+            }
+            is AssetIntent.TagFilterChanged -> {
+                state = state.copy(tagFilter = intent.tag)
+                refresh()
+            }
+            is AssetIntent.SortChanged -> {
+                state = state.copy(sortOrder = intent.sortOrder)
                 refresh()
             }
             is AssetIntent.SelectAsset -> state = state.copy(selectedAssetId = intent.assetId)
@@ -81,6 +90,41 @@ class AssetViewModel(
                 state = state.copy(maintenanceForm = intent.form.copy(error = null))
             }
             AssetIntent.AddMaintenanceRecord -> addMaintenanceRecord()
+            is AssetIntent.StartReminder -> state = state.copy(
+                reminderForm = ReminderFormState(
+                    assetId = intent.assetId ?: state.assets.firstOrNull()?.id.orEmpty(),
+                    dueDate = DateProvider.today().toString()
+                )
+            )
+            is AssetIntent.ReminderFormChanged -> {
+                state = state.copy(reminderForm = intent.form.copy(error = null))
+            }
+            AssetIntent.SaveReminder -> saveReminder()
+            is AssetIntent.ReminderCompleted -> {
+                useCases.setReminderCompleted(
+                    intent.assetId,
+                    intent.reminderId,
+                    intent.completed,
+                    IdGenerator.next("reminder")
+                )
+                state = state.copy(
+                    effect = AssetEffect.Message(
+                        if (intent.completed) "Reminder completed." else "Reminder reopened."
+                    )
+                )
+                refresh()
+            }
+            is AssetIntent.RequestSuggestion -> {
+                val asset = useCases.getAssetById(intent.assetId) ?: return
+                state = state.copy(
+                    suggestionAssetId = asset.id,
+                    suggestion = useCases.calculateAssetDecision(asset)
+                )
+            }
+            AssetIntent.ClearSuggestion -> state = state.copy(
+                suggestionAssetId = null,
+                suggestion = null
+            )
         }
     }
 
@@ -135,18 +179,42 @@ class AssetViewModel(
         refresh(selectedAssetId = assetId)
     }
 
+    private fun saveReminder() {
+        val result = state.reminderForm.toReminder(IdGenerator.next("reminder"))
+        val reminder = result.reminder
+        if (reminder == null) {
+            state = state.copy(reminderForm = state.reminderForm.copy(error = result.error))
+            return
+        }
+
+        useCases.addReminder(state.reminderForm.assetId, reminder)
+        state = state.copy(
+            reminderForm = ReminderFormState(),
+            effect = AssetEffect.Message("Reminder created.")
+        )
+        refresh()
+    }
+
     private fun refresh(selectedAssetId: String? = state.selectedAssetId) {
         val assets = useCases.getAssets().sortedWith(
             compareByDescending<ash.asset.domain.model.Asset> { it.updatedAt }
                 .thenBy { it.name.lowercase() }
         )
         val searched = useCases.searchAssets(assets, state.searchQuery)
-        val visibleAssets = useCases.filterAssets(
+        val filteredAssets = useCases.filterAssets(
             assets = searched,
             category = state.categoryFilter,
             condition = state.conditionFilter,
             ownershipStatus = state.ownershipFilter
         )
+        val taggedAssets = filteredAssets.filter { asset ->
+            state.tagFilter == null || state.tagFilter in asset.tags
+        }
+        val visibleAssets = when (state.sortOrder) {
+            AssetSortOrder.RECENTLY_ADDED -> taggedAssets.sortedByDescending { it.createdAt }
+            AssetSortOrder.NAME -> taggedAssets.sortedBy { it.name.lowercase() }
+            AssetSortOrder.PURCHASE_VALUE -> taggedAssets.sortedByDescending { it.purchasePrice }
+        }
         val summary = useCases.calculateAssetSummary(assets)
         state = AssetReducer.reduce(
             state = state.copy(selectedAssetId = selectedAssetId),

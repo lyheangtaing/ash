@@ -5,8 +5,12 @@ import ash.asset.data.mapper.toDomain
 import ash.asset.data.mapper.toEntity
 import ash.asset.domain.model.Asset
 import ash.asset.domain.model.MaintenanceRecord
+import ash.asset.domain.model.AssetReminder
+import ash.asset.domain.model.ReminderRecurrence
 import ash.asset.domain.repository.AssetRepository
 import ash.core.util.DateProvider
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.plus
 
 class SettingsAssetRepository(
     private val localDataSource: AssetLocalDataSource
@@ -44,5 +48,39 @@ class SettingsAssetRepository(
             updatedAt = DateProvider.today()
         )
         return upsertAsset(updated)
+    }
+
+    override fun addReminder(assetId: String, reminder: AssetReminder): Asset? {
+        val existing = getAssetById(assetId) ?: return null
+        return upsertAsset(
+            existing.copy(reminders = (existing.reminders + reminder).sortedBy { it.dueDate })
+        )
+    }
+
+    override fun setReminderCompleted(
+        assetId: String,
+        reminderId: String,
+        completed: Boolean,
+        nextReminderId: String
+    ): Asset? {
+        val existing = getAssetById(assetId) ?: return null
+        val target = existing.reminders.firstOrNull { it.id == reminderId } ?: return existing
+        val updatedReminders = existing.reminders.map {
+            if (it.id == reminderId) it.copy(isCompleted = completed) else it
+        }.toMutableList()
+        if (completed && !target.isCompleted && target.recurrence != ReminderRecurrence.NONE) {
+            val period = when (target.recurrence) {
+                ReminderRecurrence.NONE -> DatePeriod()
+                ReminderRecurrence.WEEKLY -> DatePeriod(days = 7)
+                ReminderRecurrence.MONTHLY -> DatePeriod(months = 1)
+                ReminderRecurrence.YEARLY -> DatePeriod(years = 1)
+            }
+            updatedReminders += target.copy(
+                id = nextReminderId,
+                dueDate = target.dueDate.plus(period),
+                isCompleted = false
+            )
+        }
+        return upsertAsset(existing.copy(reminders = updatedReminders.sortedBy { it.dueDate }))
     }
 }

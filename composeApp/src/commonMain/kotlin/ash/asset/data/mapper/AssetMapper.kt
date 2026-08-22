@@ -24,7 +24,12 @@ fun AssetEntity.toDomain(): Asset {
         maintenanceRecords = maintenanceRecords.map { it.toDomain() },
         isInUse = isInUse,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        tags = tags,
+        specialDetails = specialDetails,
+        willingToSell = willingToSell,
+        desiredSellingPrice = desiredSellingPrice,
+        reminders = reminders
     )
 }
 
@@ -47,7 +52,12 @@ fun Asset.toEntity(): AssetEntity {
         maintenanceRecords = maintenanceRecords.map { it.toEntity() },
         isInUse = isInUse,
         createdAt = createdAt,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        tags = tags,
+        specialDetails = specialDetails,
+        willingToSell = willingToSell,
+        desiredSellingPrice = desiredSellingPrice,
+        reminders = reminders
     )
 }
 
@@ -57,7 +67,9 @@ private fun MaintenanceRecordEntity.toDomain(): MaintenanceRecord {
         date = date,
         type = type,
         cost = cost,
-        notes = notes
+        notes = notes,
+        eventType = eventType,
+        imageUris = imageUris
     )
 }
 
@@ -67,6 +79,8 @@ private fun MaintenanceRecord.toEntity(): MaintenanceRecordEntity {
         date = date,
         type = type,
         cost = cost,
-        notes = notes
+        notes = notes,
+        eventType = eventType,
+        imageUris = imageUris
     )
 }

@@ -4,6 +4,7 @@ import ash.asset.data.datasource.SettingsAssetLocalDataSource
 import ash.asset.data.repository.SettingsAssetRepository
 import ash.asset.domain.usecase.AddAssetUseCase
 import ash.asset.domain.usecase.AddMaintenanceRecordUseCase
+import ash.asset.domain.usecase.AddReminderUseCase
 import ash.asset.domain.usecase.AssetUseCases
 import ash.asset.domain.usecase.CalculateAssetDecisionUseCase
 import ash.asset.domain.usecase.CalculateAssetSummaryUseCase
@@ -12,24 +13,30 @@ import ash.asset.domain.usecase.FilterAssetsUseCase
 import ash.asset.domain.usecase.GetAssetByIdUseCase
 import ash.asset.domain.usecase.GetAssetsUseCase
 import ash.asset.domain.usecase.SearchAssetsUseCase
+import ash.asset.domain.usecase.SetReminderCompletedUseCase
 import ash.asset.domain.usecase.UpdateAssetUseCase
 import ash.asset.presentation.AssetEffect
 import ash.asset.presentation.AssetIntent
 import ash.asset.presentation.AssetViewModel
-import ash.asset.presentation.dashboard.DashboardScreen
+import ash.asset.presentation.activity.ActivityScreen
 import ash.asset.presentation.detail.AssetDetailScreen
 import ash.asset.presentation.edit.AssetEditScreen
 import ash.asset.presentation.list.AssetListScreen
 import ash.asset.presentation.maintenance.MaintenanceLogScreen
+import ash.asset.presentation.reminder.ReminderEditScreen
+import ash.asset.presentation.reminder.RemindersScreen
+import ash.asset.presentation.settings.SettingsScreen
 import ash.core.designsystem.AshTheme
 import ash.core.navigation.AshBackHandler
 import ash.core.navigation.AshRoute
-import com.russhwolf.settings.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,24 +45,31 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.CollectionsBookmark
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,10 +93,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.russhwolf.settings.Settings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,74 +108,53 @@ fun AshApp(settings: Settings) {
         val viewModel = remember(settings) { AssetViewModel(createAssetUseCases(settings)) }
         val state = viewModel.state
         val snackbarHostState = remember { SnackbarHostState() }
-        var route by remember { mutableStateOf<AshRoute>(AshRoute.Dashboard) }
+        var route by remember { mutableStateOf<AshRoute>(AshRoute.Collection) }
         val backStack = remember { mutableStateListOf<AshRoute>() }
 
-        fun navigateTo(nextRoute: AshRoute) {
-            if (nextRoute == route) return
-            backStack.add(route)
-            route = nextRoute
+        fun navigateTo(next: AshRoute) {
+            if (next == route) return
+            backStack += route
+            route = next
         }
-
-        fun replaceWith(nextRoute: AshRoute) {
-            if (backStack.lastOrNull() == nextRoute) {
-                backStack.removeAt(backStack.lastIndex)
-            }
-            route = nextRoute
-        }
-
-        fun navigateHome() {
+        fun navigateRoot(next: AshRoute) {
             backStack.clear()
-            route = AshRoute.Dashboard
+            route = next
         }
-
-        fun navigateAssetsRoot() {
-            if (route == AshRoute.AssetList) return
-            if (route == AshRoute.Dashboard) {
-                navigateTo(AshRoute.AssetList)
-            } else {
-                backStack.clear()
-                route = AshRoute.AssetList
-            }
-        }
-
         fun navigateBack() {
-            route = if (backStack.isNotEmpty()) {
-                backStack.removeAt(backStack.lastIndex)
-            } else {
-                route.fallbackBackDestination() ?: route
-            }
+            route = if (backStack.isNotEmpty()) backStack.removeAt(backStack.lastIndex)
+            else route.fallback() ?: route
         }
-
-        fun openDetail(assetId: String) {
-            viewModel.dispatch(AssetIntent.SelectAsset(assetId))
-            navigateTo(AshRoute.AssetDetail(assetId))
+        fun replaceWith(next: AshRoute) {
+            route = next
         }
-
-        fun openAddAsset() {
+        fun openAsset(id: String) {
+            viewModel.dispatch(AssetIntent.SelectAsset(id))
+            navigateTo(AshRoute.AssetDetail(id))
+        }
+        fun addAsset() {
             viewModel.dispatch(AssetIntent.StartAddAsset)
-            navigateTo(AshRoute.EditAsset(assetId = null))
+            navigateTo(AshRoute.EditAsset(null))
         }
-
-        fun openEditAsset(assetId: String) {
-            viewModel.dispatch(AssetIntent.StartEditAsset(assetId))
-            navigateTo(AshRoute.EditAsset(assetId = assetId))
+        fun editAsset(id: String) {
+            viewModel.dispatch(AssetIntent.StartEditAsset(id))
+            navigateTo(AshRoute.EditAsset(id))
         }
-
-        fun openMaintenance(assetId: String) {
-            viewModel.dispatch(AssetIntent.StartMaintenance(assetId))
-            navigateTo(AshRoute.MaintenanceLog(assetId))
+        fun addHistory(id: String) {
+            viewModel.dispatch(AssetIntent.StartMaintenance(id))
+            navigateTo(AshRoute.MaintenanceLog(id))
+        }
+        fun addReminder(assetId: String?) {
+            viewModel.dispatch(AssetIntent.StartReminder(assetId))
+            navigateTo(AshRoute.EditReminder(assetId))
         }
 
         AshBackHandler(
-            enabled = backStack.isNotEmpty() || route.fallbackBackDestination() != null,
+            enabled = backStack.isNotEmpty() || route.fallback() != null,
             onBack = ::navigateBack
         )
-
         LaunchedEffect(state.effect) {
-            val effect = state.effect
-            if (effect is AssetEffect.Message) {
-                snackbarHostState.showSnackbar(effect.text)
+            (state.effect as? AssetEffect.Message)?.let {
+                snackbarHostState.showSnackbar(it.text)
                 viewModel.dispatch(AssetIntent.ClearEffect)
             }
         }
@@ -167,115 +163,116 @@ fun AshApp(settings: Settings) {
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                if (route.canGoBack()) {
+                if (route.showsTopBar()) {
                     TopAppBar(
-                    title = { Text(route.title()) },
+                        title = { Text(route.title()) },
+                        navigationIcon = {
+                            IconButton(onClick = ::navigateBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                            }
+                        },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.background,
                             scrolledContainerColor = MaterialTheme.colorScheme.background
-                        ),
-                        navigationIcon = {
-                            IconButton(onClick = ::navigateBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                            }
-                        }
+                        )
                     )
                 }
             },
             bottomBar = {
-                LiquidGlassBottomNavigation(
-                    route = route,
-                    onDashboardClick = ::navigateHome,
-                    onAddClick = ::openAddAsset,
-                    onAssetsClick = ::navigateAssetsRoot
-                )
+                if (route.showsBottomBar()) {
+                    AshBottomNavigation(
+                        route,
+                        { navigateRoot(AshRoute.Collection) },
+                        { navigateRoot(AshRoute.Activity) },
+                        { navigateRoot(AshRoute.Reminders) },
+                        onAddAsset = ::addAsset
+                    )
+                }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
-            val screenModifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-
             AnimatedContent(
                 targetState = route,
-                modifier = screenModifier,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
                 transitionSpec = {
-                    val movingForward = targetState.depth() >= initialState.depth()
-                    val enterOffset = { width: Int -> if (movingForward) width / 3 else -width / 3 }
-                    val exitOffset = { width: Int -> if (movingForward) -width / 5 else width / 5 }
-
-                    ((
-                        slideInHorizontally(
-                            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                            initialOffsetX = enterOffset
-                        ) + fadeIn(animationSpec = tween(durationMillis = 180))
-                        ) togetherWith (
-                        slideOutHorizontally(
-                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-                            targetOffsetX = exitOffset
-                        ) + fadeOut(animationSpec = tween(durationMillis = 160))
-                        )).using(SizeTransform(clip = false))
+                    val forward = targetState.depth() >= initialState.depth()
+                    ((slideInHorizontally(tween(280, easing = FastOutSlowInEasing)) { if (forward) it / 4 else -it / 4 } + fadeIn()) togetherWith
+                        (slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { if (forward) -it / 6 else it / 6 } + fadeOut()))
+                        .using(SizeTransform(clip = false))
                 },
-                label = "AshRouteTransition"
-            ) { currentRoute ->
-                when (currentRoute) {
-                    AshRoute.Dashboard -> DashboardScreen(
+                label = "AshNavigation"
+            ) { current ->
+                when (current) {
+                    AshRoute.Collection -> AssetListScreen(
                         state = state,
-                        decisionFor = viewModel::decisionFor,
-                        onSearchChanged = { viewModel.dispatch(AssetIntent.SearchChanged(it)) },
-                        onAssetSelected = ::openDetail,
-                        onAddAsset = ::openAddAsset,
-                        onOpenAssets = { navigateTo(AshRoute.AssetList) },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    AshRoute.AssetList -> AssetListScreen(
-                        state = state,
-                        decisionFor = viewModel::decisionFor,
                         onSearchChanged = { viewModel.dispatch(AssetIntent.SearchChanged(it)) },
                         onCategoryChanged = { viewModel.dispatch(AssetIntent.CategoryFilterChanged(it)) },
-                        onConditionChanged = { viewModel.dispatch(AssetIntent.ConditionFilterChanged(it)) },
-                        onOwnershipChanged = { viewModel.dispatch(AssetIntent.OwnershipFilterChanged(it)) },
+                        onTagChanged = { viewModel.dispatch(AssetIntent.TagFilterChanged(it)) },
+                        onSortChanged = { viewModel.dispatch(AssetIntent.SortChanged(it)) },
                         onClearFilters = { viewModel.dispatch(AssetIntent.ClearFilters) },
-                        onAssetSelected = ::openDetail,
+                        onAssetSelected = ::openAsset,
+                        onAddAsset = ::addAsset,
+                        onOpenSettings = { navigateTo(AshRoute.Settings) },
                         modifier = Modifier.fillMaxSize()
                     )
+                    AshRoute.Activity -> ActivityScreen(state.assets, ::openAsset, Modifier.fillMaxSize())
+                    AshRoute.Reminders -> RemindersScreen(
+                        assets = state.assets,
+                        onAddReminder = { addReminder(null) },
+                        onReminderCompleted = { assetId, reminderId, complete ->
+                            viewModel.dispatch(AssetIntent.ReminderCompleted(assetId, reminderId, complete))
+                        },
+                        onAssetSelected = ::openAsset,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    AshRoute.Settings -> SettingsScreen(Modifier.fillMaxSize())
                     is AshRoute.AssetDetail -> {
-                        val asset = state.assets.firstOrNull { it.id == currentRoute.assetId }
+                        val asset = state.assets.firstOrNull { it.id == current.assetId }
                         AssetDetailScreen(
                             asset = asset,
-                            decision = asset?.let(viewModel::decisionFor),
-                            onEdit = ::openEditAsset,
-                            onMaintenance = ::openMaintenance,
+                            suggestion = state.suggestion.takeIf { state.suggestionAssetId == current.assetId },
+                            onEdit = ::editAsset,
+                            onMaintenance = ::addHistory,
+                            onCreateReminder = { addReminder(it) },
+                            onRequestSuggestion = { viewModel.dispatch(AssetIntent.RequestSuggestion(it)) },
                             onDelete = {
                                 viewModel.dispatch(AssetIntent.DeleteAsset(it))
-                                backStack.clear()
-                                route = AshRoute.AssetList
+                                navigateRoot(AshRoute.Collection)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                     is AshRoute.EditAsset -> AssetEditScreen(
                         form = state.editForm,
-                        isEditing = currentRoute.assetId != null,
+                        isEditing = current.assetId != null,
                         onFormChanged = { viewModel.dispatch(AssetIntent.AssetFormChanged(it)) },
                         onSave = {
                             viewModel.dispatch(AssetIntent.SaveAsset)
-                            val savedId = viewModel.state.selectedAssetId
-                            if (viewModel.state.editForm.error == null && savedId != null) {
-                                replaceWith(AshRoute.AssetDetail(savedId))
-                            }
+                            val id = viewModel.state.selectedAssetId
+                            if (viewModel.state.editForm.error == null && id != null) replaceWith(AshRoute.AssetDetail(id))
                         },
-                        onCancel = {
-                            navigateBack()
-                        },
+                        onCancel = ::navigateBack,
                         modifier = Modifier.fillMaxSize()
                     )
                     is AshRoute.MaintenanceLog -> MaintenanceLogScreen(
-                        asset = state.assets.firstOrNull { it.id == currentRoute.assetId },
+                        asset = state.assets.firstOrNull { it.id == current.assetId },
                         form = state.maintenanceForm,
                         onFormChanged = { viewModel.dispatch(AssetIntent.MaintenanceFormChanged(it)) },
                         onAddRecord = { viewModel.dispatch(AssetIntent.AddMaintenanceRecord) },
-                        onDone = { replaceWith(AshRoute.AssetDetail(currentRoute.assetId)) },
+                        onDone = { replaceWith(AshRoute.AssetDetail(current.assetId)) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    is AshRoute.EditReminder -> ReminderEditScreen(
+                        assets = state.assets,
+                        form = state.reminderForm,
+                        onFormChanged = { viewModel.dispatch(AssetIntent.ReminderFormChanged(it)) },
+                        onSave = {
+                            viewModel.dispatch(AssetIntent.SaveReminder)
+                            if (viewModel.state.reminderForm.error == null) {
+                                replaceWith(current.assetId?.let(AshRoute::AssetDetail) ?: AshRoute.Reminders)
+                            }
+                        },
+                        onCancel = ::navigateBack,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -286,7 +283,6 @@ fun AshApp(settings: Settings) {
 
 private fun createAssetUseCases(settings: Settings): AssetUseCases {
     val repository = SettingsAssetRepository(SettingsAssetLocalDataSource(settings))
-    val calculateAssetDecision = CalculateAssetDecisionUseCase()
     return AssetUseCases(
         addAsset = AddAssetUseCase(repository),
         updateAsset = UpdateAssetUseCase(repository),
@@ -295,111 +291,128 @@ private fun createAssetUseCases(settings: Settings): AssetUseCases {
         getAssetById = GetAssetByIdUseCase(repository),
         searchAssets = SearchAssetsUseCase(),
         filterAssets = FilterAssetsUseCase(),
-        calculateAssetSummary = CalculateAssetSummaryUseCase(calculateAssetDecision),
+        calculateAssetSummary = CalculateAssetSummaryUseCase(),
         addMaintenanceRecord = AddMaintenanceRecordUseCase(repository),
-        calculateAssetDecision = calculateAssetDecision
+        addReminder = AddReminderUseCase(repository),
+        setReminderCompleted = SetReminderCompletedUseCase(repository),
+        calculateAssetDecision = CalculateAssetDecisionUseCase()
     )
 }
 
-private fun AshRoute.title(): String {
-    return when (this) {
-        AshRoute.Dashboard -> "Lookup"
-        AshRoute.AssetList -> "Assets"
-        is AshRoute.AssetDetail -> "Asset"
-        is AshRoute.EditAsset -> if (assetId == null) "Add asset" else "Edit asset"
-        is AshRoute.MaintenanceLog -> "Maintenance"
-    }
-}
-
-private fun AshRoute.canGoBack(): Boolean {
-    return this is AshRoute.AssetDetail || this is AshRoute.EditAsset || this is AshRoute.MaintenanceLog
-}
-
-private fun AshRoute.fallbackBackDestination(): AshRoute? {
-    return when (this) {
-        AshRoute.Dashboard -> null
-        AshRoute.AssetList -> AshRoute.Dashboard
-        is AshRoute.AssetDetail -> AshRoute.AssetList
-        is AshRoute.EditAsset -> assetId?.let { AshRoute.AssetDetail(it) } ?: AshRoute.AssetList
-        is AshRoute.MaintenanceLog -> AshRoute.AssetDetail(assetId)
-    }
-}
-
-private fun AshRoute.depth(): Int {
-    return when (this) {
-        AshRoute.Dashboard -> 0
-        AshRoute.AssetList -> 1
-        is AshRoute.AssetDetail -> 2
-        is AshRoute.EditAsset -> 3
-        is AshRoute.MaintenanceLog -> 3
-    }
-}
-
 @Composable
-private fun LiquidGlassBottomNavigation(
+private fun AshBottomNavigation(
     route: AshRoute,
-    onDashboardClick: () -> Unit,
-    onAddClick: () -> Unit,
-    onAssetsClick: () -> Unit
+    onCollection: () -> Unit,
+    onActivity: () -> Unit,
+    onReminders: () -> Unit,
+    onAddAsset: () -> Unit
 ) {
-    val glassShape = RoundedCornerShape(36.dp)
-    Box(
+    val isDark = isSystemInDarkTheme()
+    val showAdd = route is AshRoute.Collection || route is AshRoute.Activity || route is AshRoute.Reminders
+    val selectedIndex = when {
+        route.collectionSelected() -> 0
+        route is AshRoute.Activity -> 1
+        else -> 2
+    }
+    val items = listOf(
+        LiquidNavItem(Icons.Default.CollectionsBookmark, "Collection", onCollection),
+        LiquidNavItem(Icons.Default.History, "Activity", onActivity),
+        LiquidNavItem(Icons.Default.NotificationsNone, "Reminders", onReminders)
+    )
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 22.dp, end = 22.dp, top = 6.dp, bottom = 14.dp),
-        contentAlignment = Alignment.Center
+            .navigationBarsPadding()
+            .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(66.dp),
-            shape = glassShape,
-            color = Color.White.copy(alpha = 0.82f),
-            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.10f)),
-            shadowElevation = 12.dp
+        LiquidGlassTabs(
+            items = items,
+            selectedIndex = selectedIndex,
+            isDark = isDark,
+            modifier = Modifier.width(224.dp)
+        )
+        if (showAdd) {
+            Spacer(Modifier.width(8.dp))
+            LiquidAddButton(onClick = onAddAsset, isDark = isDark)
+        }
+    }
+}
+
+private data class LiquidNavItem(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun LiquidGlassTabs(
+    items: List<LiquidNavItem>,
+    selectedIndex: Int,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val glassShape = CircleShape
+    val selectionShape = RoundedCornerShape(28.dp)
+    val glassBrush = Brush.verticalGradient(
+        colors = if (isDark) {
+            listOf(Color.White.copy(alpha = 0.16f), Color(0xFF252525).copy(alpha = 0.90f))
+        } else {
+            listOf(Color.White.copy(alpha = 0.94f), Color(0xFFF4F4F1).copy(alpha = 0.82f))
+        }
+    )
+    Surface(
+        modifier = modifier.height(68.dp),
+        shape = glassShape,
+        color = Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.92f)
+        ),
+        shadowElevation = 16.dp
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize().background(glassBrush, glassShape).padding(6.dp)
         ) {
-            Box(
+            val itemWidth = maxWidth / items.size
+            val selectionWidth = 68.dp
+            val selectionHeight = 56.dp
+            val selectionOffset by animateDpAsState(
+                targetValue = itemWidth * selectedIndex + (itemWidth - selectionWidth) / 2,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "LiquidGlassSelection"
+            )
+            Surface(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.94f),
-                                Color.White.copy(alpha = 0.72f),
-                                Color(0xFFF5F5F2).copy(alpha = 0.78f)
-                            )
-                        ),
-                        shape = glassShape
-                    )
-                    .border(
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.72f)),
-                        shape = glassShape
-                    )
-                    .padding(horizontal = 9.dp, vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LiquidGlassNavItem(
-                        selected = route is AshRoute.Dashboard,
-                        icon = Icons.Default.Home,
-                        label = "Lookup",
-                        onClick = onDashboardClick,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LiquidGlassAddButton(
-                        onClick = onAddClick,
-                        modifier = Modifier.size(50.dp)
-                    )
-                    LiquidGlassNavItem(
-                        selected = route.isAssetArea(),
-                        icon = Icons.AutoMirrored.Filled.List,
-                        label = "Assets",
-                        onClick = onAssetsClick,
-                        modifier = Modifier.weight(1f)
-                    )
+                    .offset(x = selectionOffset)
+                    .size(width = selectionWidth, height = selectionHeight),
+                shape = selectionShape,
+                color = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.78f),
+                border = BorderStroke(
+                    1.dp,
+                    if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.90f)
+                ),
+                shadowElevation = if (isDark) 0.dp else 2.dp
+            ) {}
+            Row(Modifier.fillMaxSize()) {
+                items.forEachIndexed { index, item ->
+                    Box(
+                        modifier = Modifier.width(itemWidth).fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BottomNavItem(
+                            selected = index == selectedIndex,
+                            icon = item.icon,
+                            label = item.label,
+                            onClick = item.onClick,
+                            modifier = Modifier.size(width = selectionWidth, height = selectionHeight)
+                        )
+                    }
                 }
             }
         }
@@ -407,97 +420,102 @@ private fun LiquidGlassBottomNavigation(
 }
 
 @Composable
-private fun LiquidGlassNavItem(
+private fun BottomNavItem(
     selected: Boolean,
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemShape = RoundedCornerShape(28.dp)
-    val selectedBackground by animateFloatAsState(
-        targetValue = if (selected) 0.90f else 0f,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "NavSelectedBackground"
+    val scale by animateFloatAsState(if (selected) 1f else 0.94f, tween(180), label = "NavItemScale")
+    val color by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        tween(180),
+        label = "NavItemColor"
     )
-    val itemScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.96f,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "NavItemScale"
-    )
-    val contentColor = if (selected) Color.White else Color.Black.copy(alpha = 0.58f)
     Column(
         modifier = modifier
-            .height(50.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .selectable(selected = selected, onClick = onClick, role = Role.Tab)
             .graphicsLayer {
-                scaleX = itemScale
-                scaleY = itemScale
-            }
-            .clip(itemShape)
-            .background(Color.Black.copy(alpha = selectedBackground), itemShape)
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+                scaleX = scale
+                scaleY = scale
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(20.dp),
-            tint = contentColor
-        )
+        Icon(icon, label, Modifier.size(20.dp), tint = color)
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            label,
+            modifier = Modifier.padding(horizontal = 4.dp),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                lineHeight = 12.sp
+            ),
+            color = color,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1
         )
     }
 }
 
 @Composable
-private fun LiquidGlassAddButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val buttonScale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "AddButtonScale"
-    )
-    val buttonElevation by animateDpAsState(
-        targetValue = 12.dp,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "AddButtonElevation"
-    )
+private fun LiquidAddButton(onClick: () -> Unit, isDark: Boolean) {
+    val shape = CircleShape
     Surface(
-        modifier = modifier.graphicsLayer {
-            scaleX = buttonScale
-            scaleY = buttonScale
-        },
         onClick = onClick,
-        shape = CircleShape,
-        color = Color.Black,
-        contentColor = Color.White,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.72f)),
-        shadowElevation = buttonElevation
+        modifier = Modifier.size(62.dp),
+        shape = shape,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.72f)
+        ),
+        shadowElevation = 16.dp
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Add asset",
-                modifier = Modifier.size(26.dp)
-            )
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = 0.18f), Color.Transparent)
+                ),
+                shape
+            ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Add, "Add asset", Modifier.size(24.dp))
         }
     }
 }
 
-private fun AshRoute.isAssetArea(): Boolean {
-    return when (this) {
-        AshRoute.Dashboard -> false
-        AshRoute.AssetList -> true
-        is AshRoute.AssetDetail -> true
-        is AshRoute.EditAsset -> assetId != null
-        is AshRoute.MaintenanceLog -> true
-    }
+private fun AshRoute.title() = when (this) {
+    AshRoute.Collection -> "Collection"
+    AshRoute.Activity -> "Activity"
+    AshRoute.Reminders -> "Reminders"
+    AshRoute.Settings -> "Settings"
+    is AshRoute.AssetDetail -> "Asset"
+    is AshRoute.EditAsset -> if (assetId == null) "Add asset" else "Edit asset"
+    is AshRoute.MaintenanceLog -> "History"
+    is AshRoute.EditReminder -> "Reminder"
 }
+
+private fun AshRoute.fallback(): AshRoute? = when (this) {
+    AshRoute.Collection, AshRoute.Activity, AshRoute.Reminders -> null
+    AshRoute.Settings -> AshRoute.Collection
+    is AshRoute.AssetDetail -> AshRoute.Collection
+    is AshRoute.EditAsset -> assetId?.let(AshRoute::AssetDetail) ?: AshRoute.Collection
+    is AshRoute.MaintenanceLog -> AshRoute.AssetDetail(assetId)
+    is AshRoute.EditReminder -> assetId?.let(AshRoute::AssetDetail) ?: AshRoute.Reminders
+}
+
+private fun AshRoute.depth() = when (this) {
+    AshRoute.Collection, AshRoute.Activity, AshRoute.Reminders -> 0
+    AshRoute.Settings, is AshRoute.AssetDetail -> 1
+    is AshRoute.EditAsset, is AshRoute.MaintenanceLog, is AshRoute.EditReminder -> 2
+}
+
+private fun AshRoute.showsTopBar() = this !in listOf(AshRoute.Collection, AshRoute.Activity, AshRoute.Reminders)
+private fun AshRoute.showsBottomBar() = this is AshRoute.Collection || this is AshRoute.Activity ||
+    this is AshRoute.Reminders || this is AshRoute.AssetDetail
+private fun AshRoute.collectionSelected() = this is AshRoute.Collection || this is AshRoute.AssetDetail
+private fun AshRoute.remindersSelected() = this is AshRoute.Reminders || this is AshRoute.EditReminder

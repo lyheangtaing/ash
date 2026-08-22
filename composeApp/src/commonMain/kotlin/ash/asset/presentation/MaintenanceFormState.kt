@@ -1,6 +1,7 @@
 package ash.asset.presentation
 
 import ash.asset.domain.model.MaintenanceRecord
+import ash.asset.domain.model.AssetEventType
 import kotlinx.datetime.LocalDate
 
 data class MaintenanceFormState(
@@ -8,6 +9,8 @@ data class MaintenanceFormState(
     val type: String = "",
     val cost: String = "",
     val notes: String = "",
+    val eventType: AssetEventType = AssetEventType.REPAIR,
+    val imageUris: List<String> = emptyList(),
     val error: String? = null
 )
 
@@ -23,7 +26,7 @@ fun MaintenanceFormState.toMaintenanceRecord(id: String): MaintenanceFormResult 
         null
     } ?: return MaintenanceFormResult(null, "Date must use YYYY-MM-DD.")
 
-    val parsedCost = cost.toDoubleOrNull()
+    val parsedCost = if (cost.isBlank()) 0.0 else cost.toDoubleOrNull()
         ?: return MaintenanceFormResult(null, "Cost must be a number.")
 
     if (type.isBlank()) return MaintenanceFormResult(null, "Type is required.")
@@ -35,7 +38,9 @@ fun MaintenanceFormState.toMaintenanceRecord(id: String): MaintenanceFormResult 
             date = parsedDate,
             type = type.trim(),
             cost = parsedCost,
-            notes = notes.trim()
+            notes = notes.trim(),
+            eventType = eventType,
+            imageUris = imageUris.distinct()
         ),
         error = null
     )

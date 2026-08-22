@@ -10,5 +10,7 @@ data class AssetUseCases(
     val filterAssets: FilterAssetsUseCase,
     val calculateAssetSummary: CalculateAssetSummaryUseCase,
     val addMaintenanceRecord: AddMaintenanceRecordUseCase,
+    val addReminder: AddReminderUseCase,
+    val setReminderCompleted: SetReminderCompletedUseCase,
     val calculateAssetDecision: CalculateAssetDecisionUseCase
 )

@@ -9,5 +9,7 @@ data class MaintenanceRecord(
     val date: LocalDate,
     val type: String,
     val cost: Double,
-    val notes: String
+    val notes: String,
+    val eventType: AssetEventType = AssetEventType.SERVICE,
+    val imageUris: List<String> = emptyList()
 )

@@ -1,5 +1,5 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -7,6 +7,16 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+}
+
+val releaseProperties = Properties().apply {
+    val file = rootProject.file("release.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+
+fun releaseProperty(name: String): String? {
+    return releaseProperties.getProperty(name)?.trim()?.takeIf(String::isNotEmpty)
+        ?: System.getenv("ASH_$name")?.trim()?.takeIf(String::isNotEmpty)
 }
 
 kotlin {
@@ -23,6 +33,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            binaryOption("bundleId", "com.lyheang.ash.shared")
         }
     }
     
@@ -59,8 +70,19 @@ android {
         applicationId = "com.lyheang.ash"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseProperty("VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = releaseProperty("VERSION_NAME") ?: "1.0.0"
+    }
+    signingConfigs {
+        create("release") {
+            val keystorePath = releaseProperty("ANDROID_KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = rootProject.file(keystorePath)
+                storePassword = releaseProperty("ANDROID_STORE_PASSWORD")
+                keyAlias = releaseProperty("ANDROID_KEY_ALIAS")
+                keyPassword = releaseProperty("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     packaging {
         resources {
@@ -69,13 +91,53 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (releaseProperty("ANDROID_KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+val requiredReleaseProperties = listOf(
+    "ANDROID_KEYSTORE_PATH",
+    "ANDROID_STORE_PASSWORD",
+    "ANDROID_KEY_ALIAS",
+    "ANDROID_KEY_PASSWORD"
+)
+
+val verifyStoreRelease by tasks.registering {
+    group = "distribution"
+    description = "Checks the Android upload signing configuration."
+    doLast {
+        val missing = requiredReleaseProperties.filter { releaseProperty(it).isNullOrBlank() }
+        check(missing.isEmpty()) {
+            "Missing release settings: ${missing.joinToString()}. " +
+                "Create release.properties from release.properties.example."
+        }
+        val keystore = rootProject.file(requireNotNull(releaseProperty("ANDROID_KEYSTORE_PATH")))
+        check(keystore.isFile) { "Android keystore was not found at ${keystore.absolutePath}." }
+    }
+}
+
+tasks.register("bundleStoreRelease") {
+    group = "distribution"
+    description = "Builds the signed, optimized Android App Bundle for Google Play."
+    dependsOn(verifyStoreRelease, "bundleRelease")
+}
+
+tasks.matching { it.name == "bundleRelease" }.configureEach {
+    mustRunAfter(verifyStoreRelease)
 }
 
 dependencies {

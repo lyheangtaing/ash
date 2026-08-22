@@ -24,13 +24,13 @@ object AshSpacing {
     val lg: Dp = 16.dp
     val xl: Dp = 20.dp
     val screen: Dp = 16.dp
-    val bottomNavPadding: Dp = 116.dp
+    val bottomNavPadding: Dp = 24.dp
 }
 
 object AshRadius {
-    val sm: Dp = 10.dp
-    val md: Dp = 14.dp
-    val lg: Dp = 18.dp
+    val sm: Dp = 6.dp
+    val md: Dp = 8.dp
+    val lg: Dp = 8.dp
     val pill: Dp = 999.dp
 }
 

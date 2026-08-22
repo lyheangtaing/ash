@@ -3,6 +3,7 @@ package ash.asset.data.datasource
 import ash.asset.domain.model.AssetCategory
 import ash.asset.domain.model.AssetCondition
 import ash.asset.domain.model.OwnershipStatus
+import ash.asset.domain.model.AssetReminder
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 
@@ -25,5 +26,10 @@ data class AssetEntity(
     val maintenanceRecords: List<MaintenanceRecordEntity>,
     val isInUse: Boolean,
     val createdAt: LocalDate,
-    val updatedAt: LocalDate
+    val updatedAt: LocalDate,
+    val tags: List<String> = emptyList(),
+    val specialDetails: String = "",
+    val willingToSell: Boolean = false,
+    val desiredSellingPrice: Double? = null,
+    val reminders: List<AssetReminder> = emptyList()
 )

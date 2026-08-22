@@ -1,0 +1,9 @@
+# Increment both values for every store update.
+VERSION_CODE=1
+VERSION_NAME=1.0.0
+
+# Keep the real file and keystore private. Paths are resolved from the project root.
+ANDROID_KEYSTORE_PATH=signing/ash-upload.jks
+ANDROID_KEY_ALIAS=ash-upload
+ANDROID_STORE_PASSWORD=replace-me
+ANDROID_KEY_PASSWORD=replace-me

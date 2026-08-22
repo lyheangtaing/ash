@@ -13,6 +13,8 @@ class SearchAssetsUseCase {
                 asset.brand.contains(trimmedQuery, ignoreCase = true) ||
                 asset.model.contains(trimmedQuery, ignoreCase = true) ||
                 asset.serialNumber.orEmpty().contains(trimmedQuery, ignoreCase = true) ||
+                asset.tags.any { it.contains(trimmedQuery, ignoreCase = true) } ||
+                asset.specialDetails.contains(trimmedQuery, ignoreCase = true) ||
                 asset.imageUris.any { it.contains(trimmedQuery, ignoreCase = true) }
         }
     }
