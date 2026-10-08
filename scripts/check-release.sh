@@ -12,5 +12,6 @@ fi
 
 # This validates an unsigned bundle. Distribution uses bundleStoreRelease.
 exec ./gradlew --max-workers="${ASH_GRADLE_WORKERS:-3}" \
+    -Pash.unsignedRelease=true \
     :composeApp:lintRelease :composeApp:testDebugUnitTest \
     :composeApp:bundleRelease "$@"

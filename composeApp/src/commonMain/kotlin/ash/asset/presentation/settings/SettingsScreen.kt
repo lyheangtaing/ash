@@ -36,7 +36,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     Icon(Icons.Default.Lock, contentDescription = null)
                     Text("Private by design", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Your collection records stay on this device. Ash does not use analytics, ads, accounts, or automatic suggestions.",
+                        "Ash does not send your collection to the developer or third parties. There are no analytics, ads, or accounts. Read the privacy policy for photo storage, backups, and deletion details.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(onClick = { showPrivacyPolicy = !showPrivacyPolicy }) {

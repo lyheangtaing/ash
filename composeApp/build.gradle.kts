@@ -19,6 +19,10 @@ fun releaseProperty(name: String): String? {
         ?: System.getenv("ASH_$name")?.trim()?.takeIf(String::isNotEmpty)
 }
 
+val unsignedReleaseCheck = providers.gradleProperty("ash.unsignedRelease")
+    .map { it.toBooleanStrict() }
+    .orElse(false)
+
 kotlin {
     androidTarget {
         compilerOptions {
@@ -94,7 +98,7 @@ android {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
-            if (releaseProperty("ANDROID_KEYSTORE_PATH") != null) {
+            if (!unsignedReleaseCheck.get() && releaseProperty("ANDROID_KEYSTORE_PATH") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(
@@ -120,6 +124,9 @@ val verifyStoreRelease by tasks.registering {
     group = "distribution"
     description = "Checks the Android upload signing configuration."
     doLast {
+        check(!unsignedReleaseCheck.get()) {
+            "Unsigned validation cannot build a store-signed bundle. Remove -Pash.unsignedRelease=true."
+        }
         val missing = requiredReleaseProperties.filter { releaseProperty(it).isNullOrBlank() }
         check(missing.isEmpty()) {
             "Missing release settings: ${missing.joinToString()}. " +
