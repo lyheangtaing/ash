@@ -12,12 +12,18 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
+    var showPrivacyPolicy by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier,
         contentPadding = PaddingValues(AshSpacing.screen),
@@ -33,6 +39,20 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                         "Your collection records stay on this device. Ash does not use analytics, ads, accounts, or automatic suggestions.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    TextButton(onClick = { showPrivacyPolicy = !showPrivacyPolicy }) {
+                        Text(if (showPrivacyPolicy) "Hide privacy policy" else "Read privacy policy")
+                    }
+                }
+            }
+        }
+        if (showPrivacyPolicy) {
+            items(PrivacyPolicy.sections.size) { index ->
+                val section = PrivacyPolicy.sections[index]
+                AshPanel(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(AshSpacing.sm)) {
+                        Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(section.text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }

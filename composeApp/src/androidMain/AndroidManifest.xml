@@ -3,6 +3,8 @@
 
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:appCategory="productivity"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"

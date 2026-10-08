@@ -9,6 +9,7 @@ import android.os.Build
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -22,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -67,10 +67,8 @@ actual fun rememberAssetImagePicker(
         }
     }
 
-    return remember(launcher, coroutineScope) {
-        AssetImagePickerController(isAvailable = true) {
-            launcher.launch(arrayOf("image/*"))
-        }
+    return AssetImagePickerController(isAvailable = true) {
+        launcher.launch(arrayOf("image/*"))
     }
 }
 
@@ -123,6 +121,7 @@ private fun decodeWithBitmapFactory(context: Context, uriText: String): ImageBit
     }
 }.getOrNull()
 
+@RequiresApi(Build.VERSION_CODES.P)
 private fun decodeWithImageDecoder(context: Context, uriText: String): ImageBitmap? = runCatching {
     val source = localImageFile(context, uriText)?.let(ImageDecoder::createSource)
         ?: ImageDecoder.createSource(context.contentResolver, Uri.parse(uriText))
