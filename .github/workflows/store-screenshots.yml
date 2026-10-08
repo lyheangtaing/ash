@@ -1,0 +1,68 @@
+name: Store screenshots
+
+on:
+  push:
+    branches: [screenshots/store-minimum]
+    paths:
+      - .github/workflows/store-screenshots.yml
+      - scripts/capture-ios-screenshots.py
+      - scripts/verify-store-screenshot.swift
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: "13114758" # 19.0
+          packages: "platform-tools"
+      - name: Install Android SDK for the shared Gradle project
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Capture actual iPhone and iPad app screens
+        run: python3 scripts/capture-ios-screenshots.py
+      - name: Retain captures and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: actual-store-screenshots
+          path: |
+            build/ash-store-screenshots.zip
+            build/store-screenshots/
+          if-no-files-found: warn
+
+  deliver:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/screenshots/store-minimum'
+    needs: capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: actual-store-screenshots
+          path: downloaded
+      - name: Attach verified screenshots to the existing prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cp downloaded/ash-store-screenshots.zip ash-store-screenshots-${{ github.run_id }}-${{ github.run_attempt }}.zip
+          sha256sum ash-store-screenshots-${{ github.run_id }}-${{ github.run_attempt }}.zip > ash-store-screenshots-${{ github.run_id }}-${{ github.run_attempt }}.sha256
+          gh release upload v1.0.0-rc.3 \
+            ash-store-screenshots-${{ github.run_id }}-${{ github.run_attempt }}.zip \
+            ash-store-screenshots-${{ github.run_id }}-${{ github.run_attempt }}.sha256
