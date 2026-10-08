@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans to implement these tasks inline.
 
-**Goal:** Prepare Ash's existing Android and iOS app for store submission without claiming signing, publication, or unexecuted Xcode checks.
+**Goal:** Prepare Ash's existing Android and iOS app for store submission and a GitHub prerelease, without claiming store readiness or unexecuted checks.
 
 **Architecture:** Retain the existing Kotlin Multiplatform app, identifiers and local storage. Add shared offline privacy information to Settings, repair Android release checks, and add reproducible platform release workflows and submission documentation.
 
@@ -48,13 +48,13 @@
 - [x] Run optimized Android release build, lint and shared tests; inspect test counts and bundle.
 - [x] Install a locally test-signed optimized APK on the emulator; exercise policy access and representative asset/photo persistence.
 - [x] Request one independent whole-branch review and resolve important findings.
-- [ ] Check diff, absence of secrets/generated binaries, and clean status.
-- [ ] Push release/store-preparation without force or changes to main; verify remote SHA.
+- [x] Check diff, absence of secrets/generated binaries, and clean status.
+- [x] Push release/store-preparation without force or changes to main; verify remote SHA.
 
 ### Task 4: User-requested GitHub prerelease
 - [x] Package a test-signed optimized Android APK, unsigned AAB, mapping, and unsigned iOS device app.
 - [x] Gate publication on both platform builds and pushed candidate tags; no production signing keys.
 - [x] Review publication permissions and fix workflow-dispatch gating.
-- [ ] Push annotated v1.0.0-rc.1 and observe GitHub Actions; verify release assets if successful.
+- [x] Publish v1.0.0-rc.3 after correcting CI prerequisites; verify both builds and all primary release downloads. Preserve earlier tags.
 
-Task 4 describes the configured pipeline; actual remote build/publication status is reported separately.
+Both platform jobs and publication passed. See docs/release/validation.md for the run, release URL and downloaded artifact checks.
