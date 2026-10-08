@@ -8,6 +8,12 @@ local.properties
 release.properties
 *.jks
 *.keystore
+*.p12
+*.p8
+*.mobileprovision
+.env
+.env.*
+!.env.example
 .idea
 .DS_Store
 captures

@@ -1,5 +1,11 @@
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
+Release validation, signing instructions, store listing drafts, and outstanding
+submission requirements are in [the release guide](docs/release/README.md).
+Run `bash scripts/check-release.sh` for Android release lint, shared tests, and
+an unsigned bundle. On macOS, run `bash scripts/check-ios-release.sh` for an
+unsigned iOS device build. Neither command publishes an app.
+
 * [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
