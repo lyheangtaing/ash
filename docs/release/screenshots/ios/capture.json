@@ -1,0 +1,48 @@
+{
+  "commit": "97982484f8736fefd4548107014a197e3d3bef15",
+  "xcode": "Xcode 26.6\nBuild version 17F113",
+  "configuration": "Debug iOS simulator; optimized Android emulator",
+  "data": "Synthetic Demo asset with $49 purchase value and the existing Ash icon",
+  "captures": [
+    {
+      "file": "app-store/iphone-collection.png",
+      "device": "iPhone 17 Pro Max",
+      "runtime": "iOS 26.5",
+      "pixels": [
+        1320,
+        2868
+      ],
+      "source": "simctl screenshot",
+      "recognized_text": "9:41\nCollection\nYour private archive\n*\nAssets\n1\nRecorded purchase value\n$49.00\nQ\nSearch names, tags, details\nPhone\nLaptop\nMotorbike\nShoes\nSort: Recently added\nV\nDemo\nPurchase value\n$49.00\nPhone\nCollection\nActivity\nReminders\n+"
+    },
+    {
+      "file": "app-store/ipad-collection.png",
+      "device": "iPad Pro 13-inch (M5)",
+      "runtime": "iOS 26.5",
+      "pixels": [
+        2064,
+        2752
+      ],
+      "source": "simctl screenshot",
+      "recognized_text": "9:41 AM Thu Oct 8\nCollection\nYour private archive\nAssets\n1\nRecorded purchase value\n$49.00\nSearch names, tags, details\nAll\nPhone\nLaptop\nMotorbike\nShoes\nFragrance\nCollectible\nDesk setup\nElectronics\nOther\nSort: Recently added\nA\nDemo\nPurchase value\n$49.00\nPhone\nCollection\nActivity\nRemineers"
+    },
+    {
+      "file": "google-play/01-collection.png",
+      "pixels": [
+        480,
+        800
+      ],
+      "device": "Android 29 x86_64 emulator",
+      "source": "adb screencap"
+    },
+    {
+      "file": "google-play/02-privacy-policy.png",
+      "pixels": [
+        480,
+        800
+      ],
+      "device": "Android 29 x86_64 emulator",
+      "source": "adb screencap"
+    }
+  ]
+}

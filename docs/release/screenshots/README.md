@@ -24,3 +24,16 @@ release. Manual runs capture artifacts without publishing them.
 Check the current screenshot display slots in Play Console/App Store Connect
 before uploading. Inspect all actual captures; native dimensions alone do not
 establish store approval.
+
+## Verified captures
+
+[Capture run 37741966224](https://github.com/lyheangtaing/ash/actions/runs/37741966224)
+passed on 2026-10-08. The downloaded ZIP checksum and integrity were verified;
+all four PNGs are fully opaque and were visually inspected.
+
+- Android Collection and Privacy: 480 x 800 each.
+- iPhone 17 Pro Max, iOS 26.5: 1320 x 2868.
+- iPad Pro 13-inch (M5), iOS 26.5: 2064 x 2752.
+
+The iOS PNGs and capture metadata are saved under `ios/`.
+[Download all four actual screenshots](https://github.com/lyheangtaing/ash/releases/download/v1.0.0-rc.3/ash-store-screenshots-37741966224-1.zip).

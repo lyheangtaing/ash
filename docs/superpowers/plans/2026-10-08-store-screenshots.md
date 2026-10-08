@@ -29,12 +29,12 @@
 **Interfaces:** Python capture script produces build/store-screenshots/{google-play,app-store} PNG files, capture.json, README.md and ash-store-screenshots.zip.
 - [x] Implement macOS/arm64 guards, simulator build, fresh device selection, fixture installation, capture and cleanup.
 - [x] Validate syntax, workflow expressions and fixture schema against the existing app; independently review capture/publication scope.
-- [ ] Push screenshot feature branch and observe the macOS run.
+- [x] Push screenshot feature branch and observe the macOS run.
 
 ### Task 2: Artifact verification and delivery
 **Files:** Actual captures downloaded to docs/release/screenshots/ios/; validation metadata outside tracked source.
-- [ ] Download the published ZIP and verify integrity, four PNGs, native dimensions and actual rendered screens.
-- [ ] Save iPhone/iPad captures and capture evidence in the repository; push documentation/assets.
-- [ ] Deliver all four actual screenshots and the download link, with any console-size limitations stated accurately.
+- [x] Download the published ZIP and verify integrity, four PNGs, native dimensions and actual rendered screens.
+- [x] Save iPhone/iPad captures and capture evidence in the repository; push documentation/assets.
+- [x] Deliver all four actual screenshots and the download link, with any console-size limitations stated accurately.
 
-Independent review found no blocking issues. Native execution and visual inspection remain pending.
+Independent review found no blocking issues. Native execution passed in run 37741966224; all four captures passed checksum, integrity, dimensions, opacity and visual inspection.
