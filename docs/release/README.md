@@ -17,7 +17,24 @@ their build numbers.
 
 The Linux cloud environment cannot run Xcode, produce an iOS archive, or validate
 Apple signing. An unsigned bundle is not ready to upload. CI is verification,
-not deployment: it contains no publishing step and requires no signing secrets.
+and requires no production signing secrets. Store deployment remains manual.
+
+## GitHub prereleases
+
+Pushing an annotated candidate tag such as `v1.0.0-rc.1` runs both platform
+checks and publishes a GitHub prerelease only after both succeed. Ordinary branch
+pushes, pull requests and manual workflow dispatches do not publish releases. The publication job alone has
+`contents: write`; build jobs retain read-only permissions.
+
+The artifacts are a debug-test-signed optimized Android APK, an unsigned Android
+bundle, its R8 mapping, and a compiled but unsigned iOS device app ZIP. These are
+developer/test artifacts, not store-signed submissions. Uploads are staged in a
+draft and made public only after all attachments are uploaded. Existing releases
+are not overwritten. Review [the prerelease notes](github-prerelease.md) before
+tagging; use a new candidate tag for each version.
+
+See [validation evidence](validation.md) for completed local checks and the
+remaining device coverage.
 
 ## Android checks
 
@@ -30,7 +47,11 @@ bash scripts/check-release.sh
 ```
 
 This must pass release lint and execute the existing shared tests before building
-an unsigned bundle. Reports are in `composeApp/build/reports/`; the bundle is
+an unsigned bundle. The script uses `-Pash.unsignedRelease=true` to prevent
+existing upload-signing settings from being used. The distribution task refuses
+this mode. `bash scripts/test-release-signing.sh` verifies that separation with
+a temporary test key, which is deleted afterward; CI runs this regression check.
+Reports are in `composeApp/build/reports/`; the bundle is
 `composeApp/build/outputs/bundle/release/composeApp-release.aab`. Preserve the
 matching `composeApp/build/outputs/mapping/release/` output for crash diagnosis.
 The CI artifact explicitly labels its bundle unsigned.

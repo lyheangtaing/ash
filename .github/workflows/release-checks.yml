@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, "release/**"]
+    tags: ["v*-rc.*"]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +18,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      ANDROID_USER_HOME: ${{ runner.temp }}/ash-android-user
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
@@ -27,7 +30,28 @@ jobs:
       - name: Install pinned Android SDK packages
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Check Android release
-        run: bash scripts/check-release.sh
+        run: bash scripts/check-release.sh :composeApp:assembleDebug
+      - name: Verify validation never uses an upload key
+        run: bash scripts/test-release-signing.sh :composeApp:assembleRelease
+      - name: Prepare Android prerelease artifacts
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p build/github-release
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$ANDROID_USER_HOME/debug.keystore" \
+            --ks-pass pass:android --key-pass pass:android \
+            --out build/github-release/ash-android-test.apk \
+            composeApp/build/outputs/apk/release/composeApp-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/github-release/ash-android-test.apk
+          cp composeApp/build/outputs/bundle/release/composeApp-release.aab build/github-release/ash-android-unsigned.aab
+          zip -j build/github-release/ash-android-mapping.zip composeApp/build/outputs/mapping/release/mapping.txt
+      - name: Retain Android prerelease artifacts
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: github-release-android
+          path: build/github-release/*
+          if-no-files-found: error
       - name: Retain unsigned bundle and validation reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -54,3 +78,44 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Compile unsigned iOS release
         run: bash scripts/check-ios-release.sh
+      - name: Package unsigned iOS device build
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            iosApp/build/DerivedData/Build/Products/Release-iphoneos/Ash.app \
+            iosApp/build/ash-ios-unsigned-device-build.zip
+      - name: Retain iOS prerelease artifact
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: github-release-ios
+          path: iosApp/build/ash-ios-unsigned-device-build.zip
+          if-no-files-found: error
+
+  github-prerelease:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: github-release-*
+          path: dist
+          merge-multiple: true
+      - name: Create checksums
+        working-directory: dist
+        run: sha256sum *.apk *.aab *.zip > SHA256SUMS
+      - name: Publish validated GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --prerelease \
+            --title "Ash $RELEASE_TAG — release preparation" \
+            --notes-file docs/release/github-prerelease.md
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease
